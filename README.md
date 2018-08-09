@@ -1,1 +1,2 @@
-# AI_XFD_SECOND
+# AI_XFD
+AI比赛必胜！！！
