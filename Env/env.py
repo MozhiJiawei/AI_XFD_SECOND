@@ -175,19 +175,32 @@ class Maze(tk.Tk, object):
         return self.observation
 
     def step(self, action, is_random):
+        """
+        当前规则描述如下：
+        墙： -1
+        瞎停： -1
+        砍人： 0.5
+        捡宝藏： 0.5
+        停对位置：周边墙数量 * 0.125
+
+        :param action:
+        :param is_random:
+        :return:
+        """
         reward = 0
         done = False
 
         self.last_player = self.player.__copy__()
         self.player.move(action)
 
+        # 走错路
         if not self.player.is_valid() or \
                 self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0 or \
                 self.observation[self.player.x, self.player.y, PATH_CHANNEL] != 0:
-            reward -= 1
+            reward = -1
+            done = True
             if not is_random:
                 self.failed_time += 1
-            done = True
 
             if not self.player.is_valid():
                 logging.info("out of board!!!")
@@ -203,35 +216,48 @@ class Maze(tk.Tk, object):
             self.canvas.delete(self.player_ret)
             self.player_ret = self._create_rectangle(self.player.x, self.player.y, "red")
 
+        # 尝试停止
         if action == STOP:
-            done = True
-            for i in range(0, 8, 2):
-                reward += self._try_stop(self.player, i) * 0.5
-            if self.reward_sum != 0:
-                reward += 1
             logging.info("try stop!!!")
-            return self.observation, reward, done
+            done = True
+            # 没有砍到人就停止，瞎搞！
+            if self.reward_sum == 0:
+                if not is_random:
+                    self.failed_time += 1
+
+                reward = -1
+                self.reset()
+                return self.observation, reward, done
+
+            # 停在正确的位置需要加分
+            for i in range(0, 8, 2):
+                reward += self._try_stop(self.player, i) * 0.125
+
+            # 停在敌人旁边要扣分
+            if self.player.distance(self.enemy) == 1:
+                reward -= 0.25
 
         self.observation[self.last_player.x, self.last_player.y, MINE_CHANNEL] = 0
         self.observation[self.last_player.x, self.last_player.y, PATH_CHANNEL] = 1
         self.observation[self.player.x, self.player.y, MINE_CHANNEL] = 1
 
-        # 根据和敌人之间的距离计算reward，距离越近reward越大
-        reward += (1 / self.player.distance(self.enemy))
-
         if self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] != 0:
             logging.info("kill someone!!!")
-            reward += 1
+            reward += 0.5
             self.reward_sum += reward
             self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] = 0
+        # else:
+        #     # 根据和敌人之间的距离计算reward，距离越近reward越大
+        #     dis = self.player.distance(self.enemy)
+        #     reward += (1 / (dis*dis))
 
         if self.player.distance(self.treasure_1) == 0:
-            reward += 1
+            reward += 0.5
             self.observation[self.player.x, self.player.y, TREASURE_CHANNEL] -= 1
             logging.info("pick treasure!!!")
 
         if self.player.distance(self.treasure_2) == 0:
-            reward += 1
+            reward += 0.5
             self.observation[self.player.x, self.player.y, TREASURE_CHANNEL] -= 1
             logging.info("pick treasure!!!")
 
@@ -242,7 +268,11 @@ class Maze(tk.Tk, object):
             logging.error("success rat = {}".format(self.success_time / (self.success_time + self.failed_time)))
             self.success_time = 0
             self.failed_time = 0
-        logging.info("reward = %f", reward)
+
+        reward += 0.01
+        logging.info("reward = {}".format(reward))
+        # if abs(reward) > 1:
+        #     raise ValueError("reward = {}".format(reward))
         return self.observation, reward, done
 
     def set_observation(self, observation):
