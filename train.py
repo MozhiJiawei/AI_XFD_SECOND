@@ -92,6 +92,8 @@ def eval_q_net():
 
 def main(is_debug):
     brain = BrainDQN()
+    if is_debug:
+        brain.epsilon = 0
 
     maze = env.Maze(_MAP1, is_show=is_debug)
 

@@ -42,7 +42,7 @@
     }
   },
   "root": {
-    "level": "INFO",
+    "level": "ERROR",
     "handlers": [
       "console",
       "info_file_handler",

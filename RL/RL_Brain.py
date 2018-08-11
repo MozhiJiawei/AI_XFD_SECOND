@@ -14,13 +14,16 @@ from .Memory import ReplayMemory
 # Hyper Parameters:
 FRAME_PER_ACTION = 1
 GAMMA = 0.99  # decay rate of past observations
-OBSERVE = 1000.  # timesteps to observe before training
-EXPLORE = 200000.  # frames over which to anneal epsilon
-FINAL_EPSILON = 0.001  # 0.001 # final value of epsilon
+OBSERVE = 10000.  # timesteps to observe before training
+EXPLORE = 500000.  # frames over which to anneal epsilon
+FINAL_EPSILON = 0.05  # 0.001 # final value of epsilon
 INITIAL_EPSILON = 0.7  # 0.01 # starting value of epsilon
-REPLAY_MEMORY = 50000  # number of previous transitions to remember
+REPLAY_MEMORY = 40000  # number of previous transitions to remember
+PRI_EPSILON = 0.001  # Small positive value to avoid zero priority
+ALPHA = 0.6  # How much prioritization to use
 BATCH_SIZE = 32  # size of minibatch
 UPDATE_TIME = 100
+BETA_MIN = 0.4
 
 try:
     tf.mul
@@ -36,8 +39,9 @@ class BrainDQN:
     def __init__(self):
 
         # init replay memory
-        self.replayMemory = ReplayMemory()
-
+        self.replayMemory = ReplayMemory(mem_size=REPLAY_MEMORY,
+                                         alpha=ALPHA,
+                                         epsilon=PRI_EPSILON)
         # bran option
         self._USE_DUELING = True
 
@@ -45,8 +49,11 @@ class BrainDQN:
         self.map_sharp = 12
         self.timeStep = 0
         self.epsilon = INITIAL_EPSILON
-        self.n_action = 9
+        self._beta = BETA_MIN
+        self._BETA_INC = (1.0 - BETA_MIN) / EXPLORE
+        self.n_action = 8
         self.n_channel = 6
+        self._history_loss = []
 
         # init Q network
         with tf.variable_scope("q_eval"):
@@ -60,7 +67,7 @@ class BrainDQN:
 
         self.copyTargetQNetworkOperation = [tar.assign(eval) for tar, eval in zip(self.tar_para, self.eval_para)]
 
-        self.createTrainingMethod()
+        self._createTrainingMethod()
 
         # saving and loading networks
         self.saver = tf.train.Saver()
@@ -103,37 +110,53 @@ class BrainDQN:
     def copyTargetQNetwork(self):
         self.session.run(self.copyTargetQNetworkOperation)
 
-    def createTrainingMethod(self):
+    def _createTrainingMethod(self):
         self.actionInput = tf.placeholder("float", [None, self.n_action])
+        self._IS_weights = tf.placeholder(tf.float32, [None, ], name="IS_weights")
         self.yInput = tf.placeholder("float", [None])
-        Q_Action = tf.reduce_sum(tf.mul(self.QValue, self.actionInput), reduction_indices=1)
-        self.cost = tf.reduce_mean(tf.square(self.yInput - Q_Action))
+        Q_Action = tf.reduce_sum(tf.multiply(self.QValue, self.actionInput), reduction_indices=1)
+        self.td_err_abs = tf.square(self.yInput - Q_Action)
+        self.cost = tf.reduce_mean(self._IS_weights * self.td_err_abs)
         self.trainStep = tf.train.AdamOptimizer(1e-6).minimize(self.cost)
 
     def trainQNetwork(self):
 
         # Step 1: obtain random minibatch from replay memory
-        minibatch = random.sample(self.replayMemory.memory, BATCH_SIZE)
-        state_batch = [data[0] for data in minibatch]
-        action_batch = [data[1] for data in minibatch]
-        reward_batch = [data[2] for data in minibatch]
-        nextState_batch = [data[3] for data in minibatch]
+        # minibatch = random.sample(self.replayMemory.memory, BATCH_SIZE)
+        batch, IS_weights, tree_indices = self.replayMemory.sample(BATCH_SIZE, self._beta)
+        state_batch = [data[0] for data in batch]
+        action_batch = [data[1] for data in batch]
+        reward_batch = [data[2] for data in batch]
+        nextState_batch = [data[3] for data in batch]
 
         # Step 2: calculate y
         y_batch = []
         QValue_batch = self.QValueT.eval(feed_dict={self.stateInputT: nextState_batch})
         for i in range(0, BATCH_SIZE):
-            terminal = minibatch[i][4]
+            terminal = batch[i][4]
             if terminal:
                 y_batch.append(reward_batch[i])
             else:
                 y_batch.append(reward_batch[i] + GAMMA * np.max(QValue_batch[i]))
 
-        self.trainStep.run(feed_dict={
-            self.yInput: y_batch,
-            self.actionInput: action_batch,
-            self.stateInput: state_batch
-        })
+        _, cost, abs_errs = self.session.run(
+            [self.trainStep, self.cost, self.td_err_abs],
+            feed_dict={
+                self.yInput: y_batch,
+                self.actionInput: action_batch,
+                self.stateInput: state_batch,
+                self._IS_weights: IS_weights
+            })
+
+        self._history_loss.append(cost)
+
+        self.replayMemory.update(tree_indices, abs_errs)
+
+        if len(self._history_loss) == 1000:
+            logging.error("average loss = {}".format(np.mean(self._history_loss)))
+            self._history_loss = []
+
+        self._beta = min(1.0, self._beta + self._BETA_INC)
 
         # save network every 100000 iteration
         if self.timeStep % 10000 == 0:
@@ -146,9 +169,7 @@ class BrainDQN:
         # newState = np.append(nextObservation,self.currentState[:,:,1:],axis = 2)
         action_verctor = np.zeros(self.n_action)
         action_verctor[action] = 1
-        self.replayMemory.push_back((observation.copy(), action_verctor, reward, next_observation.copy(), terminal))
-        if len(self.replayMemory) > REPLAY_MEMORY:
-            self.replayMemory.pop_front()
+        self.replayMemory.store((observation.copy(), action_verctor, reward, next_observation.copy(), terminal))
         if self.timeStep > OBSERVE:
             # Train the network
             self.trainQNetwork()
