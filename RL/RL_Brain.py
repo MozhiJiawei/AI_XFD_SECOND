@@ -16,7 +16,7 @@ FRAME_PER_ACTION = 1
 GAMMA = 0.99  # decay rate of past observations
 OBSERVE = 10000.  # timesteps to observe before training
 EXPLORE = 500000.  # frames over which to anneal epsilon
-FINAL_EPSILON = 0.05  # 0.001 # final value of epsilon
+FINAL_EPSILON = 0.1  # 0.001 # final value of epsilon
 INITIAL_EPSILON = 0.7  # 0.01 # starting value of epsilon
 REPLAY_MEMORY = 40000  # number of previous transitions to remember
 PRI_EPSILON = 0.001  # Small positive value to avoid zero priority
@@ -39,18 +39,19 @@ class BrainDQN:
     def __init__(self):
 
         # init replay memory
+        self.epsilon = INITIAL_EPSILON
+        self._beta = BETA_MIN
+        self._BETA_INC = (1.0 - BETA_MIN) / EXPLORE
         self.replayMemory = ReplayMemory(mem_size=REPLAY_MEMORY,
                                          alpha=ALPHA,
                                          epsilon=PRI_EPSILON)
+
         # bran option
         self._USE_DUELING = True
 
         # init some parameters
         self.map_sharp = 12
         self.timeStep = 0
-        self.epsilon = INITIAL_EPSILON
-        self._beta = BETA_MIN
-        self._BETA_INC = (1.0 - BETA_MIN) / EXPLORE
         self.n_action = 8
         self.n_channel = 6
         self._history_loss = []
@@ -76,9 +77,9 @@ class BrainDQN:
         checkpoint = tf.train.get_checkpoint_state("saved_networks")
         if checkpoint and checkpoint.model_checkpoint_path:
             self.saver.restore(self.session, checkpoint.model_checkpoint_path)
-            logging.info("Successfully loaded:{}".format(checkpoint.model_checkpoint_path))
+            logging.error("Successfully loaded:{}".format(checkpoint.model_checkpoint_path))
         else:
-            logging.info("Could not find old network weights")
+            logging.error("Could not find old network weights")
 
     def createQNetwork(self):
         state_input = tf.placeholder("float", [None, self.map_sharp, self.map_sharp, self.n_channel])
