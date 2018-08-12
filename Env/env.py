@@ -104,18 +104,30 @@ class Pos(object):
 
 
 class Maze(tk.Tk, object):
-    def __init__(self, map_in, is_show=False):
+    def __init__(self, map_in, is_show=False, is_loop=True, map_index=0):
+        """
+        :param map_in: list[ np.array(12, 12) * 6]
+        :param is_show: 是否显示TK界面
+        :param is_loop: 是否循环训练
+        :param map_index: 选择训练的地图
+        """
         super(Maze, self).__init__()
         self.is_show = is_show
+
+        # 地图信息
         self.n_action = 9
         self.n_map = 12
         self.n_channel = 6
+        self.map_index = map_index  # 当前地图索引
+        self.is_loop = is_loop  # 是否循环训练
+        self.loop_step = 0  # 当前地图已经训练了几次
+        self.loop_count = 500  # 训练几次更新地图
         self.map_input = map_in
 
         self.observation = np.zeros((self.n_map, self.n_map, self.n_channel))
 
-        self._WITH_WALL = False
-        self._WITH_TREASURE = False
+        self._WITH_WALL = True
+        self._WITH_TREASURE = True
         self._WITH_STOP_ACTION = False
 
         self.player = Pos()
@@ -128,8 +140,8 @@ class Maze(tk.Tk, object):
 
         self.reward_sum = 0
 
-        self.success_time = 0
-        self.failed_time = 0
+        self.success_time = [0 for i in range(len(self.map_input))]
+        self.failed_time = [0 for i in range(len(self.map_input))]
 
         if self.is_show:
             self.player_ret = None
@@ -154,9 +166,9 @@ class Maze(tk.Tk, object):
 
         self._init_wall()
         self.wall_list = []
-        for i in range(self.map_input.shape[0]):
-            for j in range(self.map_input.shape[1]):
-                if self.observation[i, j, WALL_CHANNEL] != 0:
+        for i in range(self.map_input[self.map_index].shape[0]):
+            for j in range(self.map_input[self.map_index].shape[1]):
+                if self.observation[i, j, WALL_CHANNEL] != 0 and (i != self.enemy.x or j != self.enemy.y):
                     self.wall_list.append(self._create_rectangle(i, j, "black", is_ret=True))
 
         self.enemy_ret = self._create_rectangle(self.enemy.x, self.enemy.y, "yellow")
@@ -209,7 +221,7 @@ class Maze(tk.Tk, object):
             reward = -1
             done = True
             if not is_random:
-                self.failed_time += 1
+                self.failed_time[self.map_index] += 1
 
             if not self.player.is_valid():
                 logging.info("out of board!!!")
@@ -224,6 +236,7 @@ class Maze(tk.Tk, object):
         if self.is_show:
             self.canvas.delete(self.player_ret)
             self.player_ret = self._create_rectangle(self.player.x, self.player.y, "red")
+            self.update()
 
         # 尝试停止
         if self._WITH_STOP_ACTION:
@@ -233,7 +246,7 @@ class Maze(tk.Tk, object):
                 # 没有砍到人就停止，瞎搞！
                 if self.reward_sum == 0:
                     if not is_random:
-                        self.failed_time += 1
+                        self.failed_time[self.map_index] += 1
 
                     reward = -1
                     self.reset()
@@ -253,42 +266,43 @@ class Maze(tk.Tk, object):
 
         if self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] != 0:
             logging.info("kill someone!!!")
-            reward += 0.5
+            reward += 1
             self.reward_sum += reward
             self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] = 0
             self.enemy_count -= 1
             if self.enemy_count == 0:
-                logging.error("finish!!!!!!")
+                logging.error("finish!!!!!! map_index = {}".format(self.map_index))
                 done = True
         else:
-            # 根据和敌人之间的距离计算reward，距离越近reward越大
             pass
+            # 根据和敌人之间的距离计算reward，距离越近reward越大
             # dis = self.player.distance(self.enemy)
             # reward += (0.5 / (dis*dis))
 
-        if self._WITH_TREASURE:
-            if self.player.distance(self.treasure_1) == 0:
-                reward += 0.5
-                self.observation[self.player.x, self.player.y, TREASURE_CHANNEL] -= 1
-                logging.info("pick treasure!!!")
-
-            if self.player.distance(self.treasure_2) == 0:
-                reward += 0.5
-                self.observation[self.player.x, self.player.y, TREASURE_CHANNEL] -= 1
-                logging.info("pick treasure!!!")
+        # 去除TREASURE CHANNEL，与ENEMY统一判断即可
+        # if self._WITH_TREASURE:
+        #     if self.player.distance(self.treasure_1) == 0:
+        #         reward += 0.5
+        #         self.observation[self.player.x, self.player.y, TREASURE_CHANNEL] -= 1
+        #         logging.info("pick treasure!!!")
+        #
+        #     if self.player.distance(self.treasure_2) == 0:
+        #         reward += 0.5
+        #         self.observation[self.player.x, self.player.y, TREASURE_CHANNEL] -= 1
+        #         logging.info("pick treasure!!!")
 
         if not is_random:
-            self.success_time += 1
+            self.success_time[self.map_index] += 1
 
-        if self.success_time + self.failed_time >= 1000:
-            logging.error("success rat = {}".format(self.success_time / (self.success_time + self.failed_time)))
-            self.success_time = 0
-            self.failed_time = 0
+        if self.success_time[self.map_index] + self.failed_time[self.map_index] >= 1000:
+            logging.error("success rat = {} map_index = {}".format(
+                self.success_time[self.map_index] / (
+                        self.success_time[self.map_index] + self.failed_time[self.map_index]),
+                self.map_index))
+            self.success_time[self.map_index] = 0
+            self.failed_time[self.map_index] = 0
 
-        # reward += 0.01
         logging.info("reward = {}".format(reward))
-        # if abs(reward) > 1:
-        #     raise ValueError("reward = {}".format(reward))
         return self.observation, reward, done
 
     def set_observation(self, observation):
@@ -301,7 +315,6 @@ class Maze(tk.Tk, object):
 
         has_player = False
         has_enemy = False
-        has_treasure_1 = False
         for i in range(self.n_map):
             for j in range(self.n_map):
                 if self.observation[i, j, MINE_CHANNEL] == 1:
@@ -312,13 +325,14 @@ class Maze(tk.Tk, object):
                     self.enemy.x = i
                     self.enemy.y = j
                     has_enemy = True
-                if self.observation[i, j, TREASURE_CHANNEL] == 1:
-                    self.treasure_1.x = i
-                    self.treasure_1.y = j
-                    has_treasure_1 = True
-                if has_treasure_1 and self.observation[i, j, TREASURE_CHANNEL] == 1:
-                    self.treasure_2.x = i
-                    self.treasure_2.y = j
+                # 去除TREASURE CHANNEL
+                # if self.observation[i, j, TREASURE_CHANNEL] == 1:
+                #     self.treasure_1.x = i
+                #     self.treasure_1.y = j
+                #     has_treasure_1 = True
+                # if has_treasure_1 and self.observation[i, j, TREASURE_CHANNEL] == 1:
+                #     self.treasure_2.x = i
+                #     self.treasure_2.y = j
 
         if not has_player or not has_enemy:
             logging.error("player")
@@ -328,7 +342,7 @@ class Maze(tk.Tk, object):
             raise ValueError("input observation has no player or enemy!!!")
 
     def render(self, is_sleep=False):
-        if is_sleep == True:
+        if is_sleep:
             time.sleep(0.3)
         self.update()
 
@@ -339,13 +353,21 @@ class Maze(tk.Tk, object):
             return 1
         else:
             return 0
-        logging.info("try stop")
 
     def _reset_tk(self):
         self.canvas.delete(self.enemy_ret)
         self.canvas.delete(self.player_ret)
         self.canvas.delete(self.t1_ret)
         self.canvas.delete(self.t2_ret)
+        for wall in self.wall_list:
+            self.canvas.delete(wall)
+
+        self.wall_list = []
+        for i in range(self.map_input[self.map_index].shape[0]):
+            for j in range(self.map_input[self.map_index].shape[1]):
+                if self.observation[i, j, WALL_CHANNEL] != 0 and (i != self.enemy.x or j != self.enemy.y):
+                    self.wall_list.append(self._create_rectangle(i, j, "black", is_ret=True))
+
         self.enemy_ret = self._create_rectangle(self.enemy.x, self.enemy.y, "yellow")
         self.player_ret = self._create_rectangle(self.player.x, self.player.y, "red")
         if self._WITH_TREASURE:
@@ -370,10 +392,16 @@ class Maze(tk.Tk, object):
                 fill=color)
 
     def _init_wall(self):
-        for i in range(self.map_input.shape[0]):
-            for j in range(self.map_input.shape[1]):
+        if self.is_loop and self.loop_step > self.loop_count:
+            self.loop_step = 0
+            self.map_index = (self.map_index + 1) % len(self.map_input)
+        elif self.is_loop:
+            self.loop_step += 1
+
+        for i in range(self.map_input[self.map_index].shape[0]):
+            for j in range(self.map_input[self.map_index].shape[1]):
                 if self._WITH_WALL:
-                    self.observation[i, j, WALL_CHANNEL] = self.map_input[i, j]
+                    self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
                 else:
                     self.observation[i, j, WALL_CHANNEL] = 0
 
@@ -388,6 +416,10 @@ class Maze(tk.Tk, object):
     def _init_enemy(self):
         self.enemy_count = 0
         self.enemy.random_init()
+        while (self.observation[self.enemy.x, self.enemy.y, WALL_CHANNEL] == 1) or \
+                (self.observation[self.enemy.x, self.enemy.y, MINE_CHANNEL] == 1):
+            self.enemy.random_init()
+
         while (self.observation[self.enemy.x, self.enemy.y, WALL_CHANNEL] == 1) or (
                 self.observation[self.enemy.x, self.enemy.y, MINE_CHANNEL] == 1):
             self.enemy.random_init()
@@ -400,7 +432,8 @@ class Maze(tk.Tk, object):
 
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1:
+                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
 
@@ -409,7 +442,8 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y + 1
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1:
+                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
 
@@ -418,7 +452,8 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1:
+                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
 
@@ -427,7 +462,8 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y - 1
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1:
+                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
 
@@ -436,20 +472,24 @@ class Maze(tk.Tk, object):
 
     def _init_treasure(self):
         self.treasure_1.random_init()
-        while (self.observation[self.treasure_1.x, self.treasure_1.y, WALL_CHANNEL] == 1) or (
-                self.observation[self.treasure_1.x, self.treasure_1.y, MINE_CHANNEL] == 1) or (
-                self.observation[self.treasure_1.x, self.treasure_1.y, ENEMY_CHANNEL] == 1):
+        while (self.observation[self.treasure_1.x, self.treasure_1.y, WALL_CHANNEL] == 1) or \
+                (self.observation[self.treasure_1.x, self.treasure_1.y, MINE_CHANNEL] == 1):
             self.treasure_1.random_init()
 
         self.treasure_2.random_init()
-        while (self.observation[self.treasure_2.x, self.treasure_2.y, WALL_CHANNEL] == 1) or (
-                self.observation[self.treasure_2.x, self.treasure_2.y, MINE_CHANNEL] == 1) or (
-                self.observation[self.treasure_2.x, self.treasure_2.y, ENEMY_CHANNEL] == 1):
+        while (self.observation[self.treasure_2.x, self.treasure_2.y, WALL_CHANNEL] == 1) or \
+                (self.observation[self.treasure_2.x, self.treasure_2.y, MINE_CHANNEL] == 1):
             self.treasure_2.random_init()
 
-        self.observation[:, :, TREASURE_CHANNEL] = np.zeros((12, 12))
-        self.observation[self.treasure_1.x, self.treasure_1.y, TREASURE_CHANNEL] += 1
-        self.observation[self.treasure_2.x, self.treasure_2.y, TREASURE_CHANNEL] += 1
+        # 去除TREASURE CHANNEL
+        # self.observation[:, :, TREASURE_CHANNEL] = np.zeros((12, 12))
+        if self.observation[self.treasure_1.x, self.treasure_1.y, ENEMY_CHANNEL] == 0:
+            self.observation[self.treasure_1.x, self.treasure_1.y, ENEMY_CHANNEL] = 1
+            self.enemy_count += 1
+
+        if self.observation[self.treasure_2.x, self.treasure_2.y, ENEMY_CHANNEL] == 0:
+            self.observation[self.treasure_2.x, self.treasure_2.y, ENEMY_CHANNEL] = 1
+            self.enemy_count += 1
 
     def _init_path(self):
         self.observation[:, :, PATH_CHANNEL] = np.zeros((12, 12))
