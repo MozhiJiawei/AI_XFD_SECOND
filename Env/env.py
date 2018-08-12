@@ -419,10 +419,6 @@ class Maze(tk.Tk, object):
         while (self.observation[self.enemy.x, self.enemy.y, WALL_CHANNEL] == 1) or \
                 (self.observation[self.enemy.x, self.enemy.y, MINE_CHANNEL] == 1):
             self.enemy.random_init()
-
-        while (self.observation[self.enemy.x, self.enemy.y, WALL_CHANNEL] == 1) or (
-                self.observation[self.enemy.x, self.enemy.y, MINE_CHANNEL] == 1):
-            self.enemy.random_init()
         self.observation[:, :, ENEMY_CHANNEL] = np.zeros((12, 12))
 
         # 敌人上面位置 后面改成毒气层
