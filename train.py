@@ -126,33 +126,25 @@ def gen_eval_data_manually():
 
 
 def eval_q_net():
-    maze = env.Maze(_MAP1, is_show=True)
-
-    memory = ReplayMemory()
-    memory.load("eval_data")
-
+    """
+    连跑训练地图各5000次
+    日志输出单步成功率，回合成功率
+    :return:
+    """
     brain = BrainDQN()
-
-    # 评估时不随机
     brain.epsilon = 0
-    r_list = []
 
-    for data in memory.memory:
-        s, action, r, s_, done = data[0], data[1], data[2], data[3], data[4]
-
-        action, _ = brain.getAction(s)
-
-        maze.set_observation(s)
-
-        _, r_eval, done_eval = maze.step(action, False)
-
-        r_list.append(r_eval - r)
-
-    logging.info(sum(r_list) / len(r_list))
-    plt.plot(np.arange(len(r_list)), r_list)
-    plt.ylabel('reward loss')
-    plt.xlabel('sample')
-    plt.show()
+    for index in range(len(_MAP_LIST)):
+        maze = env.Maze(_MAP_LIST, is_show=True, is_loop=False, map_index=index)
+        for i in range(1001):
+            observation = maze.reset()
+            while True:
+                maze.render(False)
+                action, is_random = brain.getAction(observation)
+                next_observation, r, done = maze.step(action, is_random)
+                observation = next_observation.copy()
+                if done:
+                    break
 
 
 def main(is_debug):
