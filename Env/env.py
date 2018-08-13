@@ -398,10 +398,15 @@ class Maze(tk.Tk, object):
         elif self.is_loop:
             self.loop_step += 1
 
+        poinson = np.random.randint(0, self.n_map // 2 - 1)
+
         for i in range(self.map_input[self.map_index].shape[0]):
             for j in range(self.map_input[self.map_index].shape[1]):
                 if self._WITH_WALL:
-                    self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                    if poinson <= i < self.n_map - poinson and poinson <= j < self.n_map - poinson:
+                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                    else:
+                        self.observation[i, j, WALL_CHANNEL] = 1
                 else:
                     self.observation[i, j, WALL_CHANNEL] = 0
 
