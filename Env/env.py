@@ -128,6 +128,7 @@ class Maze(tk.Tk, object):
 
         self._WITH_WALL = True
         self._WITH_TREASURE = True
+        self._WITH_RANDOM_POISON = True
         self._WITH_STOP_ACTION = False
 
         self.player = Pos()
@@ -142,6 +143,8 @@ class Maze(tk.Tk, object):
 
         self.success_time = [0 for i in range(len(self.map_input))]
         self.failed_time = [0 for i in range(len(self.map_input))]
+        self.round_success_time = [0 for i in range(len(self.map_input))]
+        self.round_failed_time = [0 for i in range(len(self.map_input))]
 
         if self.is_show:
             self.player_ret = None
@@ -219,6 +222,7 @@ class Maze(tk.Tk, object):
                 self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0 or \
                 self.observation[self.player.x, self.player.y, PATH_CHANNEL] != 0:
             reward = -1
+            self.round_failed_time[self.map_index] += 1
             done = True
             if not is_random:
                 self.failed_time[self.map_index] += 1
@@ -272,6 +276,7 @@ class Maze(tk.Tk, object):
             self.enemy_count -= 1
             if self.enemy_count == 0:
                 logging.error("finish!!!!!! map_index = {}".format(self.map_index))
+                self.round_success_time[self.map_index] += 1
                 done = True
         else:
             pass
@@ -294,13 +299,21 @@ class Maze(tk.Tk, object):
         if not is_random:
             self.success_time[self.map_index] += 1
 
-        if self.success_time[self.map_index] + self.failed_time[self.map_index] >= 1000:
+        if self.success_time[self.map_index] + self.failed_time[self.map_index] >= 2000:
             logging.error("success rat = {} map_index = {}".format(
                 self.success_time[self.map_index] / (
                         self.success_time[self.map_index] + self.failed_time[self.map_index]),
                 self.map_index))
             self.success_time[self.map_index] = 0
             self.failed_time[self.map_index] = 0
+
+        if self.round_success_time[self.map_index] + self.round_failed_time[self.map_index] >= 200:
+            logging.error("round_success rat = {} map_index = {}".format(
+                self.round_success_time[self.map_index] / (
+                        self.round_success_time[self.map_index] + self.round_failed_time[self.map_index]),
+                self.map_index))
+            self.round_success_time[self.map_index] = 0
+            self.round_failed_time[self.map_index] = 0
 
         logging.info("reward = {}".format(reward))
         return self.observation, reward, done
@@ -398,10 +411,17 @@ class Maze(tk.Tk, object):
         elif self.is_loop:
             self.loop_step += 1
 
+        poison = np.random.randint(0, self.n_map // 2 - 1)
+
         for i in range(self.map_input[self.map_index].shape[0]):
             for j in range(self.map_input[self.map_index].shape[1]):
                 if self._WITH_WALL:
-                    self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                    if self._WITH_RANDOM_POISON and poison <= i < self.n_map - poison and poison <= j < self.n_map - poison:
+                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                    elif self._WITH_RANDOM_POISON:
+                        self.observation[i, j, WALL_CHANNEL] = 1
+                    else:
+                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
                 else:
                     self.observation[i, j, WALL_CHANNEL] = 0
 
