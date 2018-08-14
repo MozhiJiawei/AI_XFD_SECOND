@@ -13,10 +13,10 @@ from .Memory import ReplayMemory
 
 # Hyper Parameters:
 FRAME_PER_ACTION = 1
-GAMMA = 0.99  # decay rate of past observations
+GAMMA = 0.70  # decay rate of past observations
 OBSERVE = 10000.  # timesteps to observe before training
-EXPLORE = 500000.  # frames over which to anneal epsilon
-FINAL_EPSILON = 0.1  # 0.001 # final value of epsilon
+EXPLORE = 1500000.  # frames over which to anneal epsilon
+FINAL_EPSILON = 0.01  # 0.001 # final value of epsilon
 INITIAL_EPSILON = 0.7  # 0.01 # starting value of epsilon
 REPLAY_MEMORY = 40000  # number of previous transitions to remember
 PRI_EPSILON = 0.001  # Small positive value to avoid zero priority
@@ -53,7 +53,7 @@ class BrainDQN:
         self.map_sharp = 12
         self.timeStep = 0
         self.n_action = 8
-        self.n_channel = 6
+        self.n_channel = 3
         self._history_loss = []
 
         # init Q network

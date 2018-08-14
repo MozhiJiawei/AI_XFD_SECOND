@@ -24,9 +24,9 @@ else:
 WALL_CHANNEL = 0
 MINE_CHANNEL = 1
 ENEMY_CHANNEL = 2
-TREASURE_CHANNEL = 3
-PATH_CHANNEL = 4
-POISON_CHANNEL = 5
+# TREASURE_CHANNEL = 3
+# WALL_CHANNEL = 4
+# POISON_CHANNEL = 5
 
 UP = 0
 RIGHT_UP = 1
@@ -117,7 +117,7 @@ class Maze(tk.Tk, object):
         # 地图信息
         self.n_action = 9
         self.n_map = 12
-        self.n_channel = 6
+        self.n_channel = 3
         self.map_index = map_index  # 当前地图索引
         self.is_loop = is_loop  # 是否循环训练
         self.loop_step = 0  # 当前地图已经训练了几次
@@ -128,7 +128,7 @@ class Maze(tk.Tk, object):
 
         self._WITH_WALL = True
         self._WITH_TREASURE = True
-        self._WITH_RANDOM_POISON = True
+        self._WITH_RANDOM_POISON = False
         self._WITH_STOP_ACTION = False
 
         self.player = Pos()
@@ -187,7 +187,7 @@ class Maze(tk.Tk, object):
         self._init_wall()
         self._init_player()
         self._init_enemy()
-        self._init_path()
+        # self._init_path()
         # self._init_poison()
         if self._WITH_TREASURE:
             self._init_treasure()
@@ -220,7 +220,7 @@ class Maze(tk.Tk, object):
         # 走错路
         if not self.player.is_valid() or \
                 self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0 or \
-                self.observation[self.player.x, self.player.y, PATH_CHANNEL] != 0:
+                self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
             reward = -1
             self.round_failed_time[self.map_index] += 1
             done = True
@@ -231,7 +231,7 @@ class Maze(tk.Tk, object):
                 logging.info("out of board!!!")
             elif self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
                 logging.info("hit wall!!!")
-            elif self.observation[self.player.x, self.player.y, PATH_CHANNEL] != 0:
+            elif self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
                 logging.info("repeat path!!!")
 
             self.reset()
@@ -265,7 +265,7 @@ class Maze(tk.Tk, object):
                     reward -= 0.25
 
         self.observation[self.last_player.x, self.last_player.y, MINE_CHANNEL] = 0
-        self.observation[self.last_player.x, self.last_player.y, PATH_CHANNEL] = 1
+        self.observation[self.last_player.x, self.last_player.y, WALL_CHANNEL] = 1
         self.observation[self.player.x, self.player.y, MINE_CHANNEL] = 1
 
         if self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] != 0:
@@ -448,7 +448,7 @@ class Maze(tk.Tk, object):
 
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -458,7 +458,7 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y + 1
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -468,7 +468,7 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -478,7 +478,7 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y - 1
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -508,4 +508,4 @@ class Maze(tk.Tk, object):
             self.enemy_count += 1
 
     def _init_path(self):
-        self.observation[:, :, PATH_CHANNEL] = np.zeros((12, 12))
+        self.observation[:, :, WALL_CHANNEL] = np.zeros((12, 12))
