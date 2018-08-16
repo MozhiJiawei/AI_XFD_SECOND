@@ -417,13 +417,13 @@ class Maze(tk.Tk, object):
             for j in range(self.map_input[self.map_index].shape[1]):
                 if self._WITH_WALL:
                     if self._WITH_RANDOM_POISON and poison <= i < self.n_map - poison and poison <= j < self.n_map - poison:
-                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                        self.observation[j, i, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
                     elif self._WITH_RANDOM_POISON:
-                        self.observation[i, j, WALL_CHANNEL] = 1
+                        self.observation[j, i, WALL_CHANNEL] = 1
                     else:
-                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                        self.observation[j, i, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
                 else:
-                    self.observation[i, j, WALL_CHANNEL] = 0
+                    self.observation[j, i, WALL_CHANNEL] = 0
 
     def _init_player(self):
         self.player.random_init()
