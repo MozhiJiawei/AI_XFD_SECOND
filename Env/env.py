@@ -11,10 +11,12 @@ The RL is in RL_brain.py.
 
 View more on my tutorial page: https://morvanzhou.github.io/tutorials/
 """
-import numpy as np
+import random
 import time
 import sys
 import logging
+
+import numpy as np
 
 if sys.version_info.major == 2:
     import Tkinter as tk
@@ -124,11 +126,20 @@ class Maze(tk.Tk, object):
         self.loop_count = 500  # 训练几次更新地图
         self.map_input = map_in
 
+        # 随机地图
+        self.map_input.append(np.zeros((12, 12)))
+        self.max_random_wall = 72  # 随机地图最多的墙数量
+
+        # 针对性训练
+        self.effective_epsilon = 0.3  # 针对性训练概率
+        self.key_points = []
+        self.max_key_num = 8
+
         self.observation = np.zeros((self.n_map, self.n_map, self.n_channel))
 
         self._WITH_WALL = True
         self._WITH_TREASURE = True
-        self._WITH_RANDOM_POISON = False
+        self._WITH_RANDOM_POISON = True
         self._WITH_STOP_ACTION = False
 
         self.player = Pos()
@@ -408,10 +419,12 @@ class Maze(tk.Tk, object):
         if self.is_loop and self.loop_step > self.loop_count:
             self.loop_step = 0
             self.map_index = (self.map_index + 1) % len(self.map_input)
+            if self.map_index == len(self.map_input) - 1:
+                self._random_init_wall()
         elif self.is_loop:
             self.loop_step += 1
 
-        poison = np.random.randint(0, self.n_map // 2 - 1)
+        poison = np.random.randint(0, self.n_map // 2 - 2)
 
         for i in range(self.map_input[self.map_index].shape[0]):
             for j in range(self.map_input[self.map_index].shape[1]):
@@ -425,8 +438,57 @@ class Maze(tk.Tk, object):
                 else:
                     self.observation[j, i, WALL_CHANNEL] = 0
 
+        # 针对性训练，先提取地图的关键点信息
+        result = {0: [],
+                  1: [],
+                  2: [],
+                  3: [],
+                  4: [],
+                  }
+        for i in range(self.map_input[self.map_index].shape[0]):
+            for j in range(self.map_input[self.map_index].shape[1]):
+                if self.observation[i][j][WALL_CHANNEL] == 1:
+                    continue
+
+                n_wall = 0
+                if i == 0 or self.observation[i - 1][j][WALL_CHANNEL] == 1:
+                    n_wall += 1  # up
+                if i == self.n_map - 1 or self.observation[i + 1][j][WALL_CHANNEL] == 1:
+                    n_wall += 1  # down
+                if j == 0 or self.observation[i][j - 1][WALL_CHANNEL] == 1:
+                    n_wall += 1  # left
+                if j == self.n_map - 1 or self.observation[i][j + 1][WALL_CHANNEL] == 1:
+                    n_wall += 1  # right
+
+                result[n_wall].append((i, j))
+
+        for i in range(4, 0, -1):
+            if len(self.key_points) == self.max_key_num:
+                break
+            for pos in result[i]:
+                self.key_points.append(pos)
+                if len(self.key_points) == self.max_key_num:
+                    break
+
+    def _random_init_wall(self):
+        """
+        生成随机地图
+        :return:
+        """
+        wall_indexes = [np.random.randint(0, self.n_map * self.n_map) for i in range(self.max_random_wall)]
+        self.map_input[-1] = np.zeros((12, 12))
+
+        for index in wall_indexes:
+            self.map_input[-1][index // self.n_map][index % self.n_map] = 1
+
     def _init_player(self):
-        self.player.random_init()
+        if random.random() < self.effective_epsilon:
+            pos = self.key_points[np.random.randint(0, len(self.key_points))]
+            self.player.x = pos[0]
+            self.player.y = pos[1]
+        else:
+            self.player.random_init()
+
         while (self.observation[self.player.x, self.player.y, WALL_CHANNEL] == 1) or (
                 self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] == 1):
             self.player.random_init()
@@ -435,12 +497,18 @@ class Maze(tk.Tk, object):
 
     def _init_enemy(self):
         self.enemy_count = 0
-        self.enemy.random_init()
+        if random.random() < self.effective_epsilon:
+            pos = self.key_points[np.random.randint(0, len(self.key_points))]
+            self.enemy.x = pos[0]
+            self.enemy.y = pos[1]
+        else:
+            self.enemy.random_init()
+
         while (self.observation[self.enemy.x, self.enemy.y, WALL_CHANNEL] == 1) or \
                 (self.observation[self.enemy.x, self.enemy.y, MINE_CHANNEL] == 1):
             self.enemy.random_init()
-        self.observation[:, :, ENEMY_CHANNEL] = np.zeros((12, 12))
 
+        self.observation[:, :, ENEMY_CHANNEL] = np.zeros((12, 12))
         # 敌人上面位置 后面改成毒气层
         enemy_tmp = Pos()
         enemy_tmp.x = self.enemy.x - 1

@@ -152,7 +152,7 @@ def main(is_debug):
     if is_debug:
         brain.epsilon = 0
 
-    maze = env.Maze(_MAP_LIST, is_show=is_debug)
+    maze = env.Maze(_MAP_LIST, is_show=True)
 
     while True:
         observation = maze.reset()
