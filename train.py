@@ -136,6 +136,7 @@ def eval_q_net():
 
     for index in range(len(_MAP_LIST)):
         maze = env.Maze(_MAP_LIST, is_show=True, is_loop=False, map_index=index)
+        maze.effective_epsilon = 1
         for i in range(1001):
             observation = maze.reset()
             while True:

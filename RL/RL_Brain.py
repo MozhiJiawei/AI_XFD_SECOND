@@ -15,9 +15,9 @@ from .Memory import ReplayMemory
 FRAME_PER_ACTION = 1
 GAMMA = 0.70  # decay rate of past observations
 OBSERVE = 10000.  # timesteps to observe before training
-EXPLORE = 1500000.  # frames over which to anneal epsilon
-FINAL_EPSILON = 0.01  # 0.001 # final value of epsilon
-INITIAL_EPSILON = 0.7  # 0.01 # starting value of epsilon
+EXPLORE = 1000000.  # frames over which to anneal epsilon
+FINAL_EPSILON = 0.001  # 0.001 # final value of epsilon
+INITIAL_EPSILON = 0.1  # 0.01 # starting value of epsilon
 REPLAY_MEMORY = 40000  # number of previous transitions to remember
 PRI_EPSILON = 0.001  # Small positive value to avoid zero priority
 ALPHA = 0.6  # How much prioritization to use
@@ -94,11 +94,15 @@ class BrainDQN:
 
         net = tf.layers.dense(net, units=512, activation=tf.nn.relu)
 
+        net = tf.layers.dense(net, units=768, activation=tf.nn.relu)
+
         if self._USE_DUELING:
-            v_net = tf.layers.dense(net, units=512, activation=tf.nn.relu)
+            v_net = tf.layers.dense(net, units=1024, activation=tf.nn.relu)
+            v_net = tf.layers.dropout(v_net)
             v = tf.layers.dense(v_net, units=1)
 
-            a_net = tf.layers.dense(net, units=512, activation=tf.nn.relu)
+            a_net = tf.layers.dense(net, units=1024, activation=tf.nn.relu)
+            a_net = tf.layers.dropout(a_net)
             a = tf.layers.dense(a_net, units=self.n_action)
 
             a_mean = tf.reduce_mean(a, axis=1, keep_dims=True)
