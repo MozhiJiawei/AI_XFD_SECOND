@@ -1,15 +1,11 @@
+# encoding: utf-8
 """
-Reinforcement learning maze example.
-
-Red rectangle:          explorer.
-Black rectangles:       hells       [reward = -1].
-Yellow bin circle:      paradise    [reward = +1].
-All other states:       ground      [reward = 0].
-
-This script is the environment part of this example.
-The RL is in RL_brain.py.
-
-View more on my tutorial page: https://morvanzhou.github.io/tutorials/
+@author: lijiawei
+@email: qetwe0000@gmail.com
+@file: RL_Brain.py
+@time: 2018/8/25 20:12
+@py-version: 3.6
+@describe: 基于莫凡Python强化学习中的迷宫改造
 """
 import random
 import time
@@ -207,7 +203,7 @@ class Maze(tk.Tk, object):
         if self.is_show:
             self._reset_tk()
 
-        return self.observation
+        return self.observation, self._get_key_observation()
 
     def step(self, action, is_random):
         """
@@ -246,7 +242,7 @@ class Maze(tk.Tk, object):
                 logging.info("repeat path!!!")
 
             self.reset()
-            return self.observation, reward, done
+            return self.observation, self._get_key_observation(), reward, done
 
         if self.is_show:
             self.canvas.delete(self.player_ret)
@@ -265,7 +261,7 @@ class Maze(tk.Tk, object):
 
                     reward = -1
                     self.reset()
-                    return self.observation, reward, done
+                    return self.observation, self._get_key_observation(), reward, done
 
                 # 停在正确的位置需要加分
                 for i in range(0, 8, 2):
@@ -327,7 +323,7 @@ class Maze(tk.Tk, object):
             self.round_failed_time[self.map_index] = 0
 
         logging.info("reward = {}".format(reward))
-        return self.observation, reward, done
+        return self.observation, self._get_key_observation(), reward, done
 
     def set_observation(self, observation):
         """
@@ -414,6 +410,47 @@ class Maze(tk.Tk, object):
                 enemy_center[0] - 15, enemy_center[1] - 15,
                 enemy_center[0] + 15, enemy_center[1] + 15,
                 fill=color)
+
+    def _get_key_observation(self):
+        """
+        根据当前observation以及player坐标获取关键特征——即8方向是否安全
+        :return: np.array(8)
+        """
+        result = np.zeros(8)
+        tmp = self.player.__copy__()
+        tmp.move(UP)
+        result[UP] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(DOWN)
+
+        tmp.move(DOWN)
+        result[DOWN] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(UP)
+
+        tmp.move(LEFT)
+        result[LEFT] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(RIGHT)
+
+        tmp.move(RIGHT)
+        result[RIGHT] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(LEFT)
+
+        tmp.move(RIGHT_UP)
+        result[RIGHT_UP] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(LEFT_DOWN)
+
+        tmp.move(RIGHT_DOWN)
+        result[RIGHT_DOWN] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(LEFT_UP)
+
+        tmp.move(LEFT_UP)
+        result[LEFT_UP] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(RIGHT_DOWN)
+
+        tmp.move(LEFT_DOWN)
+        result[LEFT_DOWN] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(RIGHT_UP)
+
+        return result
 
     def _init_wall(self):
         if self.is_loop and self.loop_step > self.loop_count:
