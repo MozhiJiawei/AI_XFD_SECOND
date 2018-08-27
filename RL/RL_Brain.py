@@ -1,8 +1,12 @@
-# -----------------------------
-# File: Deep Q-Learning Algorithm
-# Author: Flood Sung
-# Date: 2016.3.21
-# -----------------------------
+# encoding: utf-8
+"""
+@author: lijiawei
+@email: qetwe0000@gmail.com
+@file: RL_Brain.py
+@time: 2018/8/25 20:12
+@py-version: 3.6
+@describe: 基于Flappy Bird 大脑改造，使用Dueling DQN + Priority Replay 优化算法
+"""
 
 import tensorflow as tf
 import numpy as np
@@ -13,10 +17,10 @@ from .Memory import ReplayMemory
 
 # Hyper Parameters:
 FRAME_PER_ACTION = 1
-GAMMA = 0.99  # decay rate of past observations
+GAMMA = 0.70  # decay rate of past observations
 OBSERVE = 10000.  # timesteps to observe before training
-EXPLORE = 500000.  # frames over which to anneal epsilon
-FINAL_EPSILON = 0.1  # 0.001 # final value of epsilon
+EXPLORE = 1000000.  # frames over which to anneal epsilon
+FINAL_EPSILON = 0.001  # 0.001 # final value of epsilon
 INITIAL_EPSILON = 0.7  # 0.01 # starting value of epsilon
 REPLAY_MEMORY = 40000  # number of previous transitions to remember
 PRI_EPSILON = 0.001  # Small positive value to avoid zero priority
@@ -53,17 +57,17 @@ class BrainDQN:
         self.map_sharp = 12
         self.timeStep = 0
         self.n_action = 8
-        self.n_channel = 6
+        self.n_channel = 3
         self._history_loss = []
 
         # init Q network
         with tf.variable_scope("q_eval"):
-            self.stateInput, self.QValue = self.createQNetwork()
+            self.stateInput, self.key_state_input, self.QValue = self.createQNetwork()
             self.eval_para = tf.trainable_variables()
 
         # init Target Q Network
         with tf.variable_scope("q_target"):
-            self.stateInputT, self.QValueT = self.createQNetwork()
+            self.stateInputT, self.key_state_inputT, self.QValueT = self.createQNetwork()
             self.tar_para = tf.trainable_variables()[len(self.eval_para):]
 
         self.copyTargetQNetworkOperation = [tar.assign(eval) for tar, eval in zip(self.tar_para, self.eval_para)]
@@ -84,21 +88,29 @@ class BrainDQN:
     def createQNetwork(self):
         state_input = tf.placeholder("float", [None, self.map_sharp, self.map_sharp, self.n_channel])
 
+        key_state_input = tf.placeholder("float", [None, self.n_action])
+
         net = tf.layers.conv2d(state_input, filters=32, kernel_size=2, activation=tf.nn.relu,
-                               padding='valid')
+                               padding='same')
 
         net = tf.layers.conv2d(net, filters=64, kernel_size=2, activation=tf.nn.relu,
-                               padding='valid')
+                               padding='same')
 
         net = tf.layers.flatten(net)
 
+        net = tf.concat([net, key_state_input], axis=1)
+
         net = tf.layers.dense(net, units=512, activation=tf.nn.relu)
 
+        net = tf.layers.dense(net, units=768, activation=tf.nn.relu)
+
         if self._USE_DUELING:
-            v_net = tf.layers.dense(net, units=512, activation=tf.nn.relu)
+            v_net = tf.layers.dense(net, units=1024, activation=tf.nn.relu)
+            v_net = tf.layers.dropout(v_net)
             v = tf.layers.dense(v_net, units=1)
 
-            a_net = tf.layers.dense(net, units=512, activation=tf.nn.relu)
+            a_net = tf.layers.dense(net, units=1024, activation=tf.nn.relu)
+            a_net = tf.layers.dropout(a_net)
             a = tf.layers.dense(a_net, units=self.n_action)
 
             a_mean = tf.reduce_mean(a, axis=1, keep_dims=True)
@@ -106,7 +118,7 @@ class BrainDQN:
         else:
             q_value = tf.layers.dense(net, units=self.n_action)
 
-        return state_input, q_value
+        return state_input, key_state_input, q_value
 
     def copyTargetQNetwork(self):
         self.session.run(self.copyTargetQNetworkOperation)
@@ -129,10 +141,13 @@ class BrainDQN:
         action_batch = [data[1] for data in batch]
         reward_batch = [data[2] for data in batch]
         nextState_batch = [data[3] for data in batch]
+        key_state_batch = [data[5] for data in batch]
+        next_key_state_batch = [data[6] for data in batch]
 
         # Step 2: calculate y
         y_batch = []
-        QValue_batch = self.QValueT.eval(feed_dict={self.stateInputT: nextState_batch})
+        QValue_batch = self.QValueT.eval(feed_dict={self.stateInputT: nextState_batch,
+                                                    self.key_state_inputT: next_key_state_batch})
         for i in range(0, BATCH_SIZE):
             terminal = batch[i][4]
             if terminal:
@@ -146,6 +161,7 @@ class BrainDQN:
                 self.yInput: y_batch,
                 self.actionInput: action_batch,
                 self.stateInput: state_batch,
+                self.key_state_input: key_state_batch,
                 self._IS_weights: IS_weights
             })
 
@@ -166,11 +182,20 @@ class BrainDQN:
         if self.timeStep % UPDATE_TIME == 0:
             self.copyTargetQNetwork()
 
-    def setPerception(self, observation, next_observation, action, reward, terminal):
+    def setPerception(self, observation, key_observation, next_observation, next_key_observation, action, reward,
+                      terminal):
         # newState = np.append(nextObservation,self.currentState[:,:,1:],axis = 2)
         action_verctor = np.zeros(self.n_action)
         action_verctor[action] = 1
-        self.replayMemory.store((observation.copy(), action_verctor, reward, next_observation.copy(), terminal))
+        self.replayMemory.store((observation.copy(),
+                                 action_verctor,
+                                 reward,
+                                 next_observation.copy(),
+                                 terminal,
+                                 key_observation.copy(),
+                                 next_key_observation.copy())
+                                )
+
         if self.timeStep > OBSERVE:
             # Train the network
             self.trainQNetwork()
@@ -189,8 +214,9 @@ class BrainDQN:
 
         self.timeStep += 1
 
-    def getAction(self, observation):
-        QValue = self.QValue.eval(feed_dict={self.stateInput: [observation]})[0]
+    def getAction(self, observation, key_observation):
+        QValue = self.QValue.eval(feed_dict={self.stateInput: [observation],
+                                             self.key_state_input: [key_observation]})[0]
         action_index = 0
         if random.random() <= self.epsilon:
             action_index = random.randrange(self.n_action)

@@ -1,20 +1,18 @@
+# encoding: utf-8
 """
-Reinforcement learning maze example.
-
-Red rectangle:          explorer.
-Black rectangles:       hells       [reward = -1].
-Yellow bin circle:      paradise    [reward = +1].
-All other states:       ground      [reward = 0].
-
-This script is the environment part of this example.
-The RL is in RL_brain.py.
-
-View more on my tutorial page: https://morvanzhou.github.io/tutorials/
+@author: lijiawei
+@email: qetwe0000@gmail.com
+@file: RL_Brain.py
+@time: 2018/8/25 20:12
+@py-version: 3.6
+@describe: 基于莫凡Python强化学习中的迷宫改造
 """
-import numpy as np
+import random
 import time
 import sys
 import logging
+
+import numpy as np
 
 if sys.version_info.major == 2:
     import Tkinter as tk
@@ -24,9 +22,9 @@ else:
 WALL_CHANNEL = 0
 MINE_CHANNEL = 1
 ENEMY_CHANNEL = 2
-TREASURE_CHANNEL = 3
-PATH_CHANNEL = 4
-POISON_CHANNEL = 5
+# TREASURE_CHANNEL = 3
+# WALL_CHANNEL = 4
+# POISON_CHANNEL = 5
 
 UP = 0
 RIGHT_UP = 1
@@ -117,12 +115,21 @@ class Maze(tk.Tk, object):
         # 地图信息
         self.n_action = 9
         self.n_map = 12
-        self.n_channel = 6
+        self.n_channel = 3
         self.map_index = map_index  # 当前地图索引
         self.is_loop = is_loop  # 是否循环训练
         self.loop_step = 0  # 当前地图已经训练了几次
         self.loop_count = 500  # 训练几次更新地图
         self.map_input = map_in
+
+        # 随机地图
+        self.map_input.append(np.zeros((12, 12)))
+        self.max_random_wall = 72  # 随机地图最多的墙数量
+
+        # 针对性训练
+        self.effective_epsilon = 0.3  # 针对性训练概率
+        self.key_points = []
+        self.max_key_num = 8
 
         self.observation = np.zeros((self.n_map, self.n_map, self.n_channel))
 
@@ -187,7 +194,7 @@ class Maze(tk.Tk, object):
         self._init_wall()
         self._init_player()
         self._init_enemy()
-        self._init_path()
+        # self._init_path()
         # self._init_poison()
         if self._WITH_TREASURE:
             self._init_treasure()
@@ -196,7 +203,7 @@ class Maze(tk.Tk, object):
         if self.is_show:
             self._reset_tk()
 
-        return self.observation
+        return self.observation, self._get_key_observation()
 
     def step(self, action, is_random):
         """
@@ -220,7 +227,7 @@ class Maze(tk.Tk, object):
         # 走错路
         if not self.player.is_valid() or \
                 self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0 or \
-                self.observation[self.player.x, self.player.y, PATH_CHANNEL] != 0:
+                self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
             reward = -1
             self.round_failed_time[self.map_index] += 1
             done = True
@@ -231,11 +238,11 @@ class Maze(tk.Tk, object):
                 logging.info("out of board!!!")
             elif self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
                 logging.info("hit wall!!!")
-            elif self.observation[self.player.x, self.player.y, PATH_CHANNEL] != 0:
+            elif self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
                 logging.info("repeat path!!!")
 
             self.reset()
-            return self.observation, reward, done
+            return self.observation, self._get_key_observation(), reward, done
 
         if self.is_show:
             self.canvas.delete(self.player_ret)
@@ -254,7 +261,7 @@ class Maze(tk.Tk, object):
 
                     reward = -1
                     self.reset()
-                    return self.observation, reward, done
+                    return self.observation, self._get_key_observation(), reward, done
 
                 # 停在正确的位置需要加分
                 for i in range(0, 8, 2):
@@ -265,7 +272,7 @@ class Maze(tk.Tk, object):
                     reward -= 0.25
 
         self.observation[self.last_player.x, self.last_player.y, MINE_CHANNEL] = 0
-        self.observation[self.last_player.x, self.last_player.y, PATH_CHANNEL] = 1
+        self.observation[self.last_player.x, self.last_player.y, WALL_CHANNEL] = 1
         self.observation[self.player.x, self.player.y, MINE_CHANNEL] = 1
 
         if self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] != 0:
@@ -316,7 +323,7 @@ class Maze(tk.Tk, object):
             self.round_failed_time[self.map_index] = 0
 
         logging.info("reward = {}".format(reward))
-        return self.observation, reward, done
+        return self.observation, self._get_key_observation(), reward, done
 
     def set_observation(self, observation):
         """
@@ -404,29 +411,122 @@ class Maze(tk.Tk, object):
                 enemy_center[0] + 15, enemy_center[1] + 15,
                 fill=color)
 
+    def _get_key_observation(self):
+        """
+        根据当前observation以及player坐标获取关键特征——即8方向是否安全
+        :return: np.array(8)
+        """
+        result = np.zeros(8)
+        tmp = self.player.__copy__()
+        tmp.move(UP)
+        result[UP] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(DOWN)
+
+        tmp.move(DOWN)
+        result[DOWN] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(UP)
+
+        tmp.move(LEFT)
+        result[LEFT] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(RIGHT)
+
+        tmp.move(RIGHT)
+        result[RIGHT] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(LEFT)
+
+        tmp.move(RIGHT_UP)
+        result[RIGHT_UP] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(LEFT_DOWN)
+
+        tmp.move(RIGHT_DOWN)
+        result[RIGHT_DOWN] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(LEFT_UP)
+
+        tmp.move(LEFT_UP)
+        result[LEFT_UP] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(RIGHT_DOWN)
+
+        tmp.move(LEFT_DOWN)
+        result[LEFT_DOWN] = 1 if tmp.is_valid() and self.observation[tmp.x, tmp.y, WALL_CHANNEL] == 0 else -1
+        tmp.move(RIGHT_UP)
+
+        return result
+
     def _init_wall(self):
         if self.is_loop and self.loop_step > self.loop_count:
             self.loop_step = 0
             self.map_index = (self.map_index + 1) % len(self.map_input)
+            if self.map_index == len(self.map_input) - 1:
+                self._random_init_wall()
         elif self.is_loop:
             self.loop_step += 1
 
-        poison = np.random.randint(0, self.n_map // 2 - 1)
+        poison = np.random.randint(0, self.n_map // 2 - 2)
 
         for i in range(self.map_input[self.map_index].shape[0]):
             for j in range(self.map_input[self.map_index].shape[1]):
                 if self._WITH_WALL:
                     if self._WITH_RANDOM_POISON and poison <= i < self.n_map - poison and poison <= j < self.n_map - poison:
-                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                        self.observation[j, i, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
                     elif self._WITH_RANDOM_POISON:
-                        self.observation[i, j, WALL_CHANNEL] = 1
+                        self.observation[j, i, WALL_CHANNEL] = 1
                     else:
-                        self.observation[i, j, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+                        self.observation[j, i, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+
                 else:
-                    self.observation[i, j, WALL_CHANNEL] = 0
+                    self.observation[j, i, WALL_CHANNEL] = 0
+
+        # 针对性训练，先提取地图的关键点信息
+        result = {0: [],
+                  1: [],
+                  2: [],
+                  3: [],
+                  4: [],
+                  }
+        for i in range(self.map_input[self.map_index].shape[0]):
+            for j in range(self.map_input[self.map_index].shape[1]):
+                if self.observation[i][j][WALL_CHANNEL] == 1:
+                    continue
+
+                n_wall = 0
+                if i == 0 or self.observation[i - 1][j][WALL_CHANNEL] == 1:
+                    n_wall += 1  # up
+                if i == self.n_map - 1 or self.observation[i + 1][j][WALL_CHANNEL] == 1:
+                    n_wall += 1  # down
+                if j == 0 or self.observation[i][j - 1][WALL_CHANNEL] == 1:
+                    n_wall += 1  # left
+                if j == self.n_map - 1 or self.observation[i][j + 1][WALL_CHANNEL] == 1:
+                    n_wall += 1  # right
+
+                result[n_wall].append((i, j))
+
+        for i in range(4, 0, -1):
+            if len(self.key_points) == self.max_key_num:
+                break
+            for pos in result[i]:
+                self.key_points.append(pos)
+                if len(self.key_points) == self.max_key_num:
+                    break
+
+    def _random_init_wall(self):
+        """
+        生成随机地图
+        :return:
+        """
+        wall_indexes = [np.random.randint(0, self.n_map * self.n_map) for i in range(self.max_random_wall)]
+        self.map_input[-1] = np.zeros((12, 12))
+
+        for index in wall_indexes:
+            self.map_input[-1][index // self.n_map][index % self.n_map] = 1
 
     def _init_player(self):
-        self.player.random_init()
+        if random.random() < self.effective_epsilon:
+            pos = self.key_points[np.random.randint(0, len(self.key_points))]
+            self.player.x = pos[0]
+            self.player.y = pos[1]
+        else:
+            self.player.random_init()
+
         while (self.observation[self.player.x, self.player.y, WALL_CHANNEL] == 1) or (
                 self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] == 1):
             self.player.random_init()
@@ -435,12 +535,18 @@ class Maze(tk.Tk, object):
 
     def _init_enemy(self):
         self.enemy_count = 0
-        self.enemy.random_init()
+        if random.random() < self.effective_epsilon:
+            pos = self.key_points[np.random.randint(0, len(self.key_points))]
+            self.enemy.x = pos[0]
+            self.enemy.y = pos[1]
+        else:
+            self.enemy.random_init()
+
         while (self.observation[self.enemy.x, self.enemy.y, WALL_CHANNEL] == 1) or \
                 (self.observation[self.enemy.x, self.enemy.y, MINE_CHANNEL] == 1):
             self.enemy.random_init()
-        self.observation[:, :, ENEMY_CHANNEL] = np.zeros((12, 12))
 
+        self.observation[:, :, ENEMY_CHANNEL] = np.zeros((12, 12))
         # 敌人上面位置 后面改成毒气层
         enemy_tmp = Pos()
         enemy_tmp.x = self.enemy.x - 1
@@ -448,7 +554,7 @@ class Maze(tk.Tk, object):
 
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -458,7 +564,7 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y + 1
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -468,7 +574,7 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -478,7 +584,7 @@ class Maze(tk.Tk, object):
         enemy_tmp.y = self.enemy.y - 1
         if enemy_tmp.is_valid() and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
-                self.observation[enemy_tmp.x, enemy_tmp.y, PATH_CHANNEL] != 1 and \
+                self.observation[enemy_tmp.x, enemy_tmp.y, WALL_CHANNEL] != 1 and \
                 self.observation[enemy_tmp.x, enemy_tmp.y, MINE_CHANNEL] != 1:
             self.observation[enemy_tmp.x, enemy_tmp.y, ENEMY_CHANNEL] = 1
             self.enemy_count += 1
@@ -508,4 +614,4 @@ class Maze(tk.Tk, object):
             self.enemy_count += 1
 
     def _init_path(self):
-        self.observation[:, :, PATH_CHANNEL] = np.zeros((12, 12))
+        self.observation[:, :, WALL_CHANNEL] = np.zeros((12, 12))
