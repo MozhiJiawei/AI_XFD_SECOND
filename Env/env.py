@@ -472,6 +472,7 @@ class Maze(tk.Tk, object):
                         self.observation[j, i, WALL_CHANNEL] = 1
                     else:
                         self.observation[j, i, WALL_CHANNEL] = self.map_input[self.map_index][i, j]
+
                 else:
                     self.observation[j, i, WALL_CHANNEL] = 0
 

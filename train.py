@@ -112,6 +112,7 @@ def eval_q_net():
                 observation = next_observation.copy()
 
                 key_observation = next_key_observation.copy()
+
                 if done:
                     break
 
