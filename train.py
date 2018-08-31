@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 import Env.env as env
 from setup_logging import setup_logging
-from RL.Memory import ReplayMemory
+from RL.Score_Estimator import ScoreEstimator
 from RL.RL_Brain import BrainDQN
 
 _MAP_LIST = [np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -88,6 +88,36 @@ _MAP_LIST = [np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])]
 
 
+def train_score_net():
+    brain = BrainDQN()
+    brain.epsilon = 0
+
+    estimator = ScoreEstimator()
+
+    maze = env.Maze(_MAP_LIST, is_show=True)
+    maze.set_score_mode()
+
+    while True:
+        observation, key_observation, attack_value = maze.reset()
+        feature = observation.copy()
+        feature[:, :, env.MINE_CHANNEL] *= attack_value
+        while True:
+            maze.render(False)
+
+            action, _ = brain.getAction(observation, key_observation)
+
+            next_observation, next_key_observation, label, done = maze.move(action)
+
+            observation = next_observation.copy()
+
+            key_observation = next_key_observation.copy()
+
+            if done:
+                break
+
+        estimator.train(feature, label)
+
+
 def eval_q_net():
     """
     连跑训练地图各5000次
@@ -125,7 +155,7 @@ def main(is_debug):
     maze = env.Maze(_MAP_LIST, is_show=True)
 
     while True:
-        observation, key_observation = maze.reset()
+        observation, key_observation, _ = maze.reset()
         while True:
             maze.render(is_debug)
 
@@ -148,6 +178,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', type=bool, default=True)
+    parser.add_argument('--train_score', type=bool, default=False)
     parser.add_argument('--eval', type=bool, default=False)
     parser.add_argument('--debug', type=bool, default=False)
 
@@ -155,6 +186,8 @@ if __name__ == "__main__":
         args = parser.parse_args()
         if args.eval:
             eval_q_net()
+        if args.train_score:
+            train_score_net()
         elif args.train:
             main(args.debug)
     except:

@@ -5,7 +5,6 @@
 @file: RL_Brain.py
 @time: 2018/8/25 20:12
 @py-version: 3.6
-@describe: 基于Flappy Bird 大脑改造，使用Dueling DQN + Priority Replay 优化算法
 """
 
 import tensorflow as tf
@@ -60,30 +59,34 @@ class BrainDQN:
         self.n_channel = 3
         self._history_loss = []
 
-        # init Q network
-        with tf.variable_scope("q_eval"):
-            self.stateInput, self.key_state_input, self.QValue = self.createQNetwork()
-            self.eval_para = tf.trainable_variables()
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            # init Q network
+            with tf.variable_scope("q_eval"):
+                self.stateInput, self.key_state_input, self.QValue = self.createQNetwork()
+                self.eval_para = tf.trainable_variables()
 
-        # init Target Q Network
-        with tf.variable_scope("q_target"):
-            self.stateInputT, self.key_state_inputT, self.QValueT = self.createQNetwork()
-            self.tar_para = tf.trainable_variables()[len(self.eval_para):]
+            # init Target Q Network
+            with tf.variable_scope("q_target"):
+                self.stateInputT, self.key_state_inputT, self.QValueT = self.createQNetwork()
+                self.tar_para = tf.trainable_variables()[len(self.eval_para):]
 
-        self.copyTargetQNetworkOperation = [tar.assign(eval) for tar, eval in zip(self.tar_para, self.eval_para)]
+            self.copyTargetQNetworkOperation = [tar.assign(eval) for tar, eval in zip(self.tar_para, self.eval_para)]
 
-        self._createTrainingMethod()
+            self._createTrainingMethod()
 
-        # saving and loading networks
-        self.saver = tf.train.Saver()
-        self.session = tf.InteractiveSession()
-        self.session.run(tf.global_variables_initializer())
-        checkpoint = tf.train.get_checkpoint_state("saved_networks")
-        if checkpoint and checkpoint.model_checkpoint_path:
-            self.saver.restore(self.session, checkpoint.model_checkpoint_path)
-            logging.error("Successfully loaded:{}".format(checkpoint.model_checkpoint_path))
-        else:
-            logging.error("Could not find old network weights")
+        self.session = tf.Session(graph=self.graph)
+        with self.session.as_default():
+            with self.graph.as_default():
+                # saving and loading networks
+                tf.global_variables_initializer().run()
+                self.saver = tf.train.Saver()
+                checkpoint = tf.train.get_checkpoint_state("saved_networks")
+                if checkpoint and checkpoint.model_checkpoint_path:
+                    self.saver.restore(self.session, checkpoint.model_checkpoint_path)
+                    logging.error("Successfully loaded:{}".format(checkpoint.model_checkpoint_path))
+                else:
+                    logging.error("Could not find old network weights")
 
     def createQNetwork(self):
         state_input = tf.placeholder("float", [None, self.map_sharp, self.map_sharp, self.n_channel])
@@ -215,8 +218,9 @@ class BrainDQN:
         self.timeStep += 1
 
     def getAction(self, observation, key_observation):
-        QValue = self.QValue.eval(feed_dict={self.stateInput: [observation],
-                                             self.key_state_input: [key_observation]})[0]
+        with self.session.as_default():
+            QValue = self.QValue.eval(feed_dict={self.stateInput: [observation],
+                                                 self.key_state_input: [key_observation]})[0]
         action_index = 0
         if random.random() <= self.epsilon:
             action_index = random.randrange(self.n_action)

@@ -9,7 +9,7 @@ def main():
     brain.replayMemory.load(path="data")
 
     for i in range(STEP):
-        brain.trainQNetwork()
+        brain._trainQNetwork()
 
 
 if __name__ == "__main__":

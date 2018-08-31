@@ -2,3 +2,5 @@
 .idea/
 logs/
 __pycache__/
+saved_networks/
+score_network/

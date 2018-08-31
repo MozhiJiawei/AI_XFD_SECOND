@@ -138,6 +138,11 @@ class Maze(tk.Tk, object):
         self._WITH_RANDOM_POISON = True
         self._WITH_STOP_ACTION = False
 
+        # 训练估分网络
+        self._SCORE_ESTIMATOR_MODE = False
+        self.round_reward = 0
+        self.attack = 0
+
         self.player = Pos()
         self.last_player = Pos()
         self.enemy = Pos()
@@ -190,20 +195,77 @@ class Maze(tk.Tk, object):
         self.canvas.pack()
         self.update()
 
+    def set_score_mode(self, is_close=False):
+        if is_close:
+            self._SCORE_ESTIMATOR_MODE = False
+            self._WITH_TREASURE = True
+        else:
+            self._SCORE_ESTIMATOR_MODE = True
+            self._WITH_TREASURE = False
+
     def reset(self):
-        self._init_wall()
-        self._init_player()
-        self._init_enemy()
-        # self._init_path()
-        # self._init_poison()
-        if self._WITH_TREASURE:
-            self._init_treasure()
+        self.enemy_count = 0
         self.reward_sum = 0
+        while self.enemy_count == 0:
+            self._init_wall()
+            self._init_player()
+            self._init_enemy()
+            # self._init_path()
+            # self._init_poison()
+            if self._WITH_TREASURE:
+                self._init_treasure()
 
         if self.is_show:
             self._reset_tk()
 
-        return self.observation, self._get_key_observation()
+        if self._SCORE_ESTIMATOR_MODE:
+            # 初始化回合得分
+            self.round_reward = 0
+
+            # 估分网络需要砍一刀的得分信息
+            attack_index = np.random.randint(0, 3)
+            attack_list = [3, 5, 7]
+            self.attack = attack_list[attack_index]
+
+        return self.observation, self._get_key_observation(), self.attack
+
+    def move(self, action):
+        """
+        模拟整个回合，生成reward, 用于训练 ScoreEstimator
+        :param action:
+        :return: observation, key_observation, round_reward, done
+        """
+        done = False
+
+        self.last_player = self.player.__copy__()
+        self.player.move(action)
+
+        # 走错路
+        if not self.player.is_valid() or \
+                self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
+            logging.info("error path")
+            done = True
+            return self.observation, self._get_key_observation(), self.round_reward, done
+
+        if self.is_show:
+            self.canvas.delete(self.player_ret)
+            self.player_ret = self._create_rectangle(self.player.x, self.player.y, "red")
+            self.update()
+
+        self.observation[self.last_player.x, self.last_player.y, MINE_CHANNEL] = 0
+        self.observation[self.last_player.x, self.last_player.y, WALL_CHANNEL] = 1
+        self.observation[self.player.x, self.player.y, MINE_CHANNEL] = 1
+
+        if self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] != 0:
+            logging.info("kill someone!!!")
+            self.round_reward += self.attack
+            self.observation[self.player.x, self.player.y, ENEMY_CHANNEL] = 0
+            self.enemy_count -= 1
+            if self.enemy_count == 0:
+                # logging.error("finish!!! map_index = {}".format(self.map_index))
+                done = True
+
+        return self.observation, self._get_key_observation(), self.round_reward, done
 
     def step(self, action, is_random):
         """
