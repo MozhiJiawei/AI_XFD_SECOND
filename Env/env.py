@@ -123,8 +123,8 @@ class Maze(tk.Tk, object):
         self.map_input = map_in
 
         # 随机地图
-        self.map_input.append(np.zeros((12, 12)))
-        self.max_random_wall = 72  # 随机地图最多的墙数量
+        # self.map_input.append(np.zeros((12, 12)))
+        # self.max_random_wall = 72  # 随机地图最多的墙数量
 
         # 针对性训练
         self.effective_epsilon = 0.3  # 针对性训练概率
@@ -245,7 +245,7 @@ class Maze(tk.Tk, object):
                 self.observation[self.player.x, self.player.y, WALL_CHANNEL] != 0:
             logging.info("error path")
             done = True
-            return self.observation, self._get_key_observation(), self.round_reward, done
+            return self.observation, self._get_key_observation(), self.round_reward, done, False
 
         if self.is_show:
             self.canvas.delete(self.player_ret)
@@ -265,7 +265,7 @@ class Maze(tk.Tk, object):
                 # logging.error("finish!!! map_index = {}".format(self.map_index))
                 done = True
 
-        return self.observation, self._get_key_observation(), self.round_reward, done
+        return self.observation, self._get_key_observation(), self.round_reward, done, True
 
     def step(self, action, is_random):
         """
@@ -518,8 +518,9 @@ class Maze(tk.Tk, object):
         if self.is_loop and self.loop_step > self.loop_count:
             self.loop_step = 0
             self.map_index = (self.map_index + 1) % len(self.map_input)
-            if self.map_index == len(self.map_input) - 1:
-                self._random_init_wall()
+            # 随机地图
+            # if self.map_index == len(self.map_input) - 1:
+            #     self._random_init_wall()
         elif self.is_loop:
             self.loop_step += 1
 

@@ -31,8 +31,13 @@ class ScoreEstimator:
         # Memory
         self.memory = deque()
         self.MEMORY_SIZE = 10000
-        self.BATCH_SIZE = 32
+        self.BATCH_SIZE = 15
         self.SINGLE_STEP = 20
+
+        # 重要记忆，模型异常（走不完）时的记忆
+        self.important_memory = deque()
+        self.IMPORTANT_MEMORY_SIZE = 2000
+        self.IMPORTANT_BATCH_SIZE = 15
 
         self.session = tf.Session(graph=self.graph)
         with self.session.as_default():
@@ -48,22 +53,45 @@ class ScoreEstimator:
                     logging.error("Could not find old network weights")
                 pass
 
-    def train(self, feature, label):
-        if len(self.memory) < self.BATCH_SIZE:
-            self.memory.append((feature, label))
+    def train(self, feature, label, is_normal_finish):
+        """
+        训练估分网络，模型非法时的记忆标记为特殊
+        :param feature: 特征 [12, 12, 3]
+        :param label: 标签
+        :param is_normal_finish: 模型是否正常结束
+        :return: None
+        """
+        if len(self.memory) < self.BATCH_SIZE or len(self.important_memory) < self.IMPORTANT_BATCH_SIZE:
+            if is_normal_finish:
+                self.memory.append((feature.copy(), label))
+            else:
+                self.important_memory.append((feature.copy(), label))
             return
 
-        self.memory.append((feature, label))
+        if is_normal_finish:
+            self.memory.append((feature.copy(), label))
+        else:
+            self.important_memory.append((feature.copy(), label))
+
         step = 1
         if len(self.memory) > self.MEMORY_SIZE:
             self.memory.popleft()
             step = self.SINGLE_STEP
 
+        if len(self.memory) > self.IMPORTANT_MEMORY_SIZE:
+            self.memory.popleft()
+            step = self.SINGLE_STEP
+
         for i in range(step):
-            minbatch = random.sample(self.memory, self.BATCH_SIZE)
-            features = [d[0] for d in minbatch]
-            labels = [d[1] for d in minbatch]
-            labels = np.reshape(labels, newshape=(self.BATCH_SIZE, 1))
+            memory_batch = random.sample(self.memory, self.BATCH_SIZE)
+            features = [d[0] for d in memory_batch]
+            labels = [d[1] for d in memory_batch]
+
+            important_memory_batch = random.sample(self.important_memory, self.IMPORTANT_BATCH_SIZE)
+            features.extend([d[0] for d in important_memory_batch])
+            labels.extend([d[1] for d in important_memory_batch])
+
+            labels = np.reshape(labels, newshape=(self.BATCH_SIZE + self.IMPORTANT_BATCH_SIZE, 1))
 
             loss, _ = self.session.run(
                 [self.loss, self.trainer],
@@ -83,12 +111,16 @@ class ScoreEstimator:
                 self.saver.save(self.session, 'score_network/' + 'network' + '-score', global_step=self.global_step)
 
     def eval(self, feature):
+        """
+        根据当前状态进行估分
+        :param feature:
+        :return: score
+        """
         with self.session.as_default():
             score = self.score.eval(feed_dict={
                 self.feature: [feature]
-            })
+            })[0][0]
 
-        logging.info(score)
         return score
 
     def _build_graph(self):
