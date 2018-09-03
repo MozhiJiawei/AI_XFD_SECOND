@@ -123,8 +123,16 @@ class Maze(tk.Tk, object):
         self.map_input = map_in
 
         # 随机地图
-        # self.map_input.append(np.zeros((12, 12)))
-        # self.max_random_wall = 72  # 随机地图最多的墙数量
+        self.map_input.append(np.zeros((12, 12)))
+        self.max_random_wall = 72  # 随机地图最多的墙数量
+
+        # 控制开关
+        self._WITH_WALL = True
+        self._WITH_TREASURE = True
+        self._WITH_RANDOM_POISON = True
+        self._WITH_STOP_ACTION = False
+
+        self._NO_POISON_EPSILON = 0.1
 
         # 针对性训练
         self.effective_epsilon = 0.3  # 针对性训练概率
@@ -132,11 +140,6 @@ class Maze(tk.Tk, object):
         self.max_key_num = 8
 
         self.observation = np.zeros((self.n_map, self.n_map, self.n_channel))
-
-        self._WITH_WALL = True
-        self._WITH_TREASURE = True
-        self._WITH_RANDOM_POISON = True
-        self._WITH_STOP_ACTION = False
 
         # 训练估分网络
         self._SCORE_ESTIMATOR_MODE = False
@@ -195,14 +198,6 @@ class Maze(tk.Tk, object):
         self.canvas.pack()
         self.update()
 
-    def set_score_mode(self, is_close=False):
-        if is_close:
-            self._SCORE_ESTIMATOR_MODE = False
-            self._WITH_TREASURE = True
-        else:
-            self._SCORE_ESTIMATOR_MODE = True
-            self._WITH_TREASURE = False
-
     def reset(self):
         self.enemy_count = 0
         self.reward_sum = 0
@@ -228,6 +223,17 @@ class Maze(tk.Tk, object):
             self.attack = attack_list[attack_index]
 
         return self.observation, self._get_key_observation(), self.attack
+
+    def set_score_mode(self, is_close=False):
+        if is_close:
+            self._NO_POISON_EPSILON = 0.1
+            self._SCORE_ESTIMATOR_MODE = False
+            self._WITH_TREASURE = True
+        else:
+            # 打开score_net训练模式
+            self._NO_POISON_EPSILON = 0.4
+            self._SCORE_ESTIMATOR_MODE = True
+            self._WITH_TREASURE = True
 
     def move(self, action):
         """
@@ -519,8 +525,8 @@ class Maze(tk.Tk, object):
             self.loop_step = 0
             self.map_index = (self.map_index + 1) % len(self.map_input)
             # 随机地图
-            # if self.map_index == len(self.map_input) - 1:
-            #     self._random_init_wall()
+            if self.map_index == len(self.map_input) - 1:
+                self._random_init_wall()
         elif self.is_loop:
             self.loop_step += 1
 
@@ -546,6 +552,7 @@ class Maze(tk.Tk, object):
                   3: [],
                   4: [],
                   }
+        self.key_points = []
         for i in range(self.map_input[self.map_index].shape[0]):
             for j in range(self.map_input[self.map_index].shape[1]):
                 if self.observation[i][j][WALL_CHANNEL] == 1:

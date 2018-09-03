@@ -85,7 +85,115 @@ _MAP_LIST = [np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0],
                        [0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])]
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]),
+
+             np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0],
+                       [0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
+                       [0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]),
+
+             np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                       [1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0]]),
+
+             np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                       [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                       [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                       [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                       [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                       [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]),
+
+             np.array([[0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
+                       [1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                       [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0]])
+             ]
+
+
+class ScoreStatistics:
+    def __init__(self):
+        self.success = 0
+        self.failed = 0
+
+        self.success_finish = 0
+        self.failed_finish = 0
+
+        self.success_abnormal = 0
+        self.failed_abnormal = 0
+
+        self.success_no_way = 0
+        self.failed_no_way = 0
+
+    def add(self, score, label, is_normal_finish):
+        if abs(score - label) < 1.5:
+            self.success += 1
+            if is_normal_finish:
+                self.success_finish += 1
+            else:
+                self.success_abnormal += 1
+
+            if label == -10:
+                self.success_no_way += 1
+        else:
+            self.failed += 1
+            if is_normal_finish:
+                self.failed_finish += 1
+            else:
+                self.failed_abnormal += 1
+
+            if label == -10:
+                self.failed_no_way += 1
+
+        if self.success + self.failed == 1000:
+            logging.error("global_trust = {}%".format(self.success / 10))
+            self.success = 0
+            self.failed = 0
+
+        if self.success_finish + self.failed_finish == 500:
+            logging.error("normal trust = {}%".format(self.success_finish / 5))
+            self.success_finish = 0
+            self.failed_finish = 0
+
+        if self.success_abnormal + self.failed_abnormal == 300:
+            logging.error("abnormal_trust = {}%".format(self.success_abnormal / 3))
+            self.success_abnormal = 0
+            self.failed_abnormal = 0
+
+        if self.success_no_way + self.failed_no_way == 200:
+            logging.error("no_way_trust = {}%".format(self.success_no_way / 2))
+            self.success_no_way = 0
+            self.failed_no_way = 0
 
 
 def eval_score_net():
@@ -127,12 +235,7 @@ def train_score_net():
     maze = env.Maze(_MAP_LIST, is_show=True)
     maze.set_score_mode()
 
-    success = 0
-    failed = 0
-    success_finish = 0
-    failed_finish = 0
-    success_abnormal = 0
-    failed_abnormal = 0
+    stat = ScoreStatistics()
     while True:
         observation, key_observation, attack_value = maze.reset()
         feature = observation.copy()
@@ -154,33 +257,7 @@ def train_score_net():
         estimator.train(feature, label, is_normal_finish)
         score = estimator.eval(feature)
         # 模型可信度统计
-        if abs(score - label) < 1.5:
-            success += 1
-            if is_normal_finish:
-                success_finish += 1
-            else:
-                success_abnormal += 1
-        else:
-            failed += 1
-            if is_normal_finish:
-                failed_finish += 1
-            else:
-                failed_abnormal += 1
-
-        if success + failed == 1000:
-            logging.error("global_trust = {}%".format(success / 10))
-            success = 0
-            failed = 0
-
-        if success_finish + failed_finish == 500:
-            logging.error("normal trust = {}%".format(success_finish / 5))
-            success_finish = 0
-            failed_finish = 0
-
-        if success_abnormal + failed_abnormal == 300:
-            logging.error("abnormal_trust = {}%".format(success_abnormal / 3))
-            success_abnormal = 0
-            failed_abnormal = 0
+        stat.add(score, label, is_normal_finish)
 
 
 def eval_q_net():
