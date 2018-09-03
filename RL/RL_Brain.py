@@ -149,8 +149,9 @@ class BrainDQN:
 
         # Step 2: calculate y
         y_batch = []
-        QValue_batch = self.QValueT.eval(feed_dict={self.stateInputT: nextState_batch,
-                                                    self.key_state_inputT: next_key_state_batch})
+        with self.session.as_default():
+            QValue_batch = self.QValueT.eval(feed_dict={self.stateInputT: nextState_batch,
+                                                        self.key_state_inputT: next_key_state_batch})
         for i in range(0, BATCH_SIZE):
             terminal = batch[i][4]
             if terminal:
