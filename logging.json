@@ -42,7 +42,7 @@
     }
   },
   "root": {
-    "level": "ERROR",
+    "level": "INFO",
     "handlers": [
       "info_file_handler",
       "error_file_handler"

@@ -14,9 +14,13 @@ from collections import deque
 import tensorflow as tf
 import numpy as np
 
+SCORE = 1
+STOP = 2
+
 
 class ScoreEstimator:
-    def __init__(self):
+    def __init__(self, mode=SCORE):
+        self.mode = mode
         self.n_map = 12
         self.n_channel = 3
 
@@ -45,7 +49,13 @@ class ScoreEstimator:
                 # saving and loading networks
                 tf.global_variables_initializer().run()
                 self.saver = tf.train.Saver()
-                checkpoint = tf.train.get_checkpoint_state("score_network")
+                if mode == SCORE:
+                    checkpoint = tf.train.get_checkpoint_state("score_network")
+                elif mode == STOP:
+                    checkpoint = tf.train.get_checkpoint_state("stop_network")
+                else:
+                    raise ValueError("mode[{}] is invalid. should be {} or {}".format(mode, SCORE, STOP))
+
                 if checkpoint and checkpoint.model_checkpoint_path:
                     self.saver.restore(self.session, checkpoint.model_checkpoint_path)
                     logging.error("Successfully loaded:{}".format(checkpoint.model_checkpoint_path))
@@ -108,7 +118,10 @@ class ScoreEstimator:
                 self._history_loss = []
 
             if self.global_step % 10000 == 0:
-                self.saver.save(self.session, 'score_network/' + 'network' + '-score', global_step=self.global_step)
+                if self.mode == SCORE:
+                    self.saver.save(self.session, 'score_network/' + 'network' + '-score', global_step=self.global_step)
+                elif self.mode == STOP:
+                    self.saver.save(self.session, 'stop_network/' + 'network' + '-stop', global_step=self.global_step)
 
     def eval(self, feature):
         """

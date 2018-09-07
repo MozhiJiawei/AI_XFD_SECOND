@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import Env.env as env
 from setup_logging import setup_logging
 from RL.Score_Estimator import ScoreEstimator
+from RL.Score_Estimator import STOP
 from RL.RL_Brain import BrainDQN
 
 _MAP_LIST = [np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -156,7 +157,7 @@ class ScoreStatistics:
         self.failed_no_way = 0
 
     def add(self, score, label, is_normal_finish):
-        if abs(score - label) < 1.5:
+        if abs(score - label) < 0.49:
             self.success += 1
             if is_normal_finish:
                 self.success_finish += 1
@@ -239,7 +240,7 @@ def train_score_net():
     while True:
         observation, key_observation, attack_value = maze.reset()
         feature = observation.copy()
-        feature[:, :, env.MINE_CHANNEL] *= attack_value
+        # feature[:, :, env.MINE_CHANNEL] *= attack_value
         while True:
             maze.render(False)
 
@@ -258,6 +259,60 @@ def train_score_net():
         score = estimator.eval(feature)
         # 模型可信度统计
         stat.add(score, label, is_normal_finish)
+        logging.info("score = {}, label = {}".format(score, label))
+
+
+def train_stop_net():
+    brain = BrainDQN()
+    brain.epsilon = 0
+
+    estimator = ScoreEstimator(mode=STOP)
+
+    maze = env.Maze(_MAP_LIST, is_show=True)
+    maze.set_score_mode()
+
+    stat = ScoreStatistics()
+    while True:
+        observation, key_observation, attack_value = maze.reset()
+        while True:
+            maze.render(False)
+
+            action, _ = brain.getAction(observation, key_observation)
+
+            next_observation, next_key_observation, label, done, is_normal_finish = maze.move(action)
+
+            observation = next_observation.copy()
+
+            key_observation = next_key_observation.copy()
+
+            if done:
+                break
+
+        # 第二轮训练，考虑走到目标的情况
+        try:
+            observation, key_observation, _ = maze.reset_for_score_net_part2()
+            feature = observation.copy()
+            while True:
+                maze.render(False)
+
+                action, _ = brain.getAction(observation, key_observation)
+
+                next_observation, next_key_observation, label, done, is_normal_finish = maze.move(action)
+
+                observation = next_observation.copy()
+
+                key_observation = next_key_observation.copy()
+
+                if done:
+                    break
+        except:
+            # logging.exception("")
+            continue
+
+        estimator.train(feature, label, is_normal_finish)
+        score = estimator.eval(feature)
+        stat.add(score, label, is_normal_finish)
+        logging.info("score = {}, label = {}".format(score, label))
 
 
 def eval_q_net():
@@ -321,6 +376,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', type=bool, default=True)
     parser.add_argument('--train_score', type=bool, default=False)
+    parser.add_argument('--train_stop', type=bool, default=False)
     parser.add_argument('--eval_score', type=bool, default=False)
     parser.add_argument('--eval', type=bool, default=False)
     parser.add_argument('--debug', type=bool, default=False)
@@ -329,6 +385,8 @@ if __name__ == "__main__":
         args = parser.parse_args()
         if args.train_score:
             train_score_net()
+        elif args.train_stop:
+            train_stop_net()
         elif args.eval_score:
             eval_score_net()
         elif args.eval:
