@@ -326,9 +326,9 @@ def eval_q_net():
 
     for index in range(len(_MAP_LIST)):
         maze = env.Maze(_MAP_LIST, is_show=True, is_loop=False, map_index=index)
-        maze.effective_epsilon = 1
+        maze.effective_epsilon = 0.8
         for i in range(1001):
-            observation, key_observation = maze.reset()
+            observation, key_observation, _ = maze.reset()
             while True:
                 maze.render(False)
 
@@ -349,12 +349,12 @@ def main(is_debug):
     if is_debug:
         brain.epsilon = 0
 
-    maze = env.Maze(_MAP_LIST, is_show=True)
+    maze = env.Maze(_MAP_LIST, is_show=False)
 
     while True:
         observation, key_observation, _ = maze.reset()
         while True:
-            maze.render(is_debug)
+            maze.render(False)
 
             action, is_random = brain.getAction(observation, key_observation)
 

@@ -123,8 +123,8 @@ class Maze(tk.Tk, object):
         self.map_input = map_in
 
         # 随机地图
-        # self.map_input.append(np.zeros((12, 12)))
-        # self.max_random_wall = 72  # 随机地图最多的墙数量
+        self.map_input.append(np.zeros((12, 12)))
+        self.max_random_wall = 72  # 随机地图最多的墙数量
 
         # 控制开关
         self._WITH_WALL = True
@@ -133,8 +133,8 @@ class Maze(tk.Tk, object):
         self._WITH_STOP_ACTION = False
 
         self._NO_POISON_EPSILON = 0.1
-        self._NO_ENEMY_EPSILON = 0
-        self._NO_TREASURE_EPSILON = 0
+        self._NO_ENEMY_EPSILON = 0.3
+        self._NO_TREASURE_EPSILON = 0.3
 
         # 针对性训练
         self.effective_epsilon = 0.3  # 针对性训练概率
@@ -239,9 +239,14 @@ class Maze(tk.Tk, object):
         self.observation[:, :, ENEMY_CHANNEL] = np.zeros((12, 12))
 
         for i in range(100):
-            tar = self.key_points[np.random.randint(0, len(self.key_points))]
-            x = tar[0]
-            y = tar[1]
+            if random.random() < 0.8:
+                tar = self.key_points[np.random.randint(0, len(self.key_points))]
+                x = tar[0]
+                y = tar[1]
+            else:
+                tar = Pos()
+                x = tar.x
+                y = tar.y
             if (self.observation[x, y, WALL_CHANNEL] == 0) and (
                     self.observation[x, y, MINE_CHANNEL] == 0):
                 break
@@ -563,8 +568,8 @@ class Maze(tk.Tk, object):
             self.loop_step = 0
             self.map_index = (self.map_index + 1) % len(self.map_input)
             # 随机地图
-            # if self.map_index == len(self.map_input) - 1:
-            #     self._random_init_wall()
+            if self.map_index == len(self.map_input) - 1:
+                self._random_init_wall()
         elif self.is_loop:
             self.loop_step += 1
 
